@@ -2,3 +2,4 @@ react
 react-dom
 vite
 @vitejs/plugin-react
+@anthropicai/sdk
