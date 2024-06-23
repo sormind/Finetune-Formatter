@@ -1,3 +1,5 @@
+import { Anthropic } from '@anthropicai/sdk';
+
 const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
 export const generateSyntheticData = async (systemPrompt, entries, numSynthetic, progressCallback) => {
@@ -6,10 +8,10 @@ export const generateSyntheticData = async (systemPrompt, entries, numSynthetic,
     throw new Error('API key not configured');
   }
 
+  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+
   console.log('Generating synthetic data with:', { systemPrompt, entries, numSynthetic });
   console.log('Anthropic API Key:', ANTHROPIC_API_KEY);
-
-  const API_URL = 'https://api.anthropic.com/v1/messages';
 
   const synthetic = [];
   let completed = 0;
@@ -23,32 +25,16 @@ export const generateSyntheticData = async (systemPrompt, entries, numSynthetic,
     const entry = entries[i % entries.length]; // Cycle through entries if numSynthetic > entries.length
 
     try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 1000,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "human", content: `Based on this user prompt: "${entry.user}" and AI response: "${entry.assistant}", generate a new, similar but distinct user prompt and AI response pair. Maintain a similar style and tone and format. Respond in the format "User: [new user prompt]\n\nAssistant: [new AI response]"` },
-          ],
-        }),
+      const response = await anthropic.createMessage({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1000,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "human", content: `Based on this user prompt: "${entry.user}" and AI response: "${entry.assistant}", generate a new, similar but distinct user prompt and AI response pair. Maintain a similar style and tone and format. Respond in the format "User: [new user prompt]\n\nAssistant: [new AI response]"` },
+        ],
       });
 
-      console.log('Response status:', response.status);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('Result:', result);
-      
-      const generatedContent = result.content[0].text;
+      const generatedContent = response.data.choices[0].message.content;
       const [newUserPrompt, newAIResponse] = generatedContent.split('\n\n');
 
       synthetic.push({
